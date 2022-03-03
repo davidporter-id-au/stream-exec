@@ -29,6 +29,7 @@ This is strictly for:
 - save inputs only. Absolutely no security guarantees on untrusted inputs
 - JSON lines only, separated by newlines. No single long arrays either, break them up with `cat bigfile | jq ".[]" > jsonlines` first
 - unix/linux environments, no windows support
+- For big or small files, it streams input, so it doesn't load it fully into memory
 
 **Comparision vs other tools**:
 
