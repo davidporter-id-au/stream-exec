@@ -22,6 +22,13 @@ func TestFormattingEnvvarString(t *testing.T) {
 				"e={\"z\":\"x\"}",
 			},
 		},
+		"invalid envvar chars": {
+			input: `{" a space filed key": 1, "candleßrasser": 1}`,
+			expectedOutput: []string{
+				"_a_space_filed_key=1",
+				"candle_rasser=1",
+			},
+		},
 	}
 
 	for name, td := range input {

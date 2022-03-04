@@ -3,7 +3,12 @@ package streamexec
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 )
+
+// apologies for the parochialism, non-ascii support would be preferred
+// but I have no idea what support they have as envvars
+var invalidEnvarKey = regexp.MustCompile("[^a-zA-Z0-9_]")
 
 func formatEnvString(incoming string) ([]string, error) {
 	data := make(map[string]interface{})
@@ -13,7 +18,7 @@ func formatEnvString(incoming string) ([]string, error) {
 	}
 	var out []string
 	for k, v := range data {
-		out = append(out, fmt.Sprintf("%s=%v", k, convert(v)))
+		out = append(out, fmt.Sprintf("%s=%v", invalidEnvarKey.ReplaceAllString(k, "_"), convert(v)))
 	}
 	return out, nil
 }

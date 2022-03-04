@@ -5,6 +5,7 @@ const defaultInputByteLen = 5000
 
 type Options struct {
 	ErrorLog           string
+	OutputLog          string
 	IncomingBufferSize int
 	Concurrency        int
 	ContinueOnErr      bool
@@ -14,4 +15,5 @@ type Options struct {
 
 type Params struct {
 	ExecString string
+	Retries    int
 }

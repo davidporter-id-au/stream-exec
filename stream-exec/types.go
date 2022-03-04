@@ -3,10 +3,11 @@ package streamexec
 import "encoding/json"
 
 type Result struct {
-	Params    Params
-	Stderr    string
-	Stdout    string
-	ExitCode  int
+	Envvars []string `json:",omitempty"`
+	Params    Params `json:",omitempty"`
+	Stderr    string `json:",omitempty"`
+	Stdout    string `json:",omitempty"`
+	ExitCode  int    `json:",omitempty"`
 	Succeeded bool
 }
 
