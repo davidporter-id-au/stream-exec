@@ -19,12 +19,15 @@ func main() {
 	var retries int
 	var continueOnError bool
 	var dryRun bool
+	var debug bool
+
 	flag.StringVar(&execString, "exec", "", "the thing to run")
 	flag.BoolVar(&continueOnError, "continue", false, "continue on error")
 	flag.IntVar(&concurrency, "concurrency", 10, "number of concurrent operations")
-	flag.IntVar(&retries, "retries", 1, "the number of attempts to retry failures (1 based - a parameter of 2 implies two total requests, one failure, one retry)")
+	flag.IntVar(&retries, "retries", 0, "the number of attempts to retry failures")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would run")
-	flag.StringVar(&outputLogPath, "output-log-path", fmt.Sprintf("exec-output-%s.log", time.Now().Format("2006-01-02__15_04_05Z07")), "where to write the output log, leave as '' for none")
+	flag.BoolVar(&debug, "debug", false, "enable debug logging")
+	flag.StringVar(&outputLogPath, "output-log-path", "", "where to write the output log, leave as '' for none")
 	flag.StringVar(&errorLogPath, "err-log-path", fmt.Sprintf("error-output-%s.log", time.Now().Format("2006-01-02__15_04_05Z07")), "where to write the error log, leave as '' for none")
 
 	flag.Parse()
@@ -42,6 +45,8 @@ func main() {
 		},
 		Concurrency:   concurrency,
 		ContinueOnErr: continueOnError,
+		DebugMode:     debug,
+		DryRun:        dryRun,
 	}
 
 	exec := streamexec.New(os.Stdin, os.Stdout, os.Stderr, options)

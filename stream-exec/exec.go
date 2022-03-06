@@ -10,17 +10,18 @@ import (
 
 func (s *StreamExec) exec(envvars []string) (*Result, error) {
 
-	if s.options.OutputDebugMode {
+	if s.options.DryRun {
 		log.Printf("Dry-run: bash -c '%s'\n", s.options.Params.ExecString)
 		log.Printf("with envvars: %v", envvars)
 		return nil, nil
 	}
 
-	stdout, err := s.execWithRetries(s.options.Params.Retries, func() ([]byte, error) {
+	stdout, err := execWithRetries(s.options.Params.Retries, func() ([]byte, error) {
 		cmd := exec.Command("bash", "-c", s.options.Params.ExecString)
 		cmd.Env = envvars
 		return cmd.CombinedOutput()
-	})
+	}, s.debugPrint,
+		time.Second) // todo, make this configurable
 
 	if err != nil {
 		var e *exec.ExitError
@@ -48,11 +49,11 @@ func (s *StreamExec) exec(envvars []string) (*Result, error) {
 }
 
 // simple retry mechanism with exponential backoff
-func (s StreamExec) execWithRetries(retries int, f func() ([]byte, error)) ([]byte, error) {
-	retryLen := 1
+func execWithRetries(retries int, f func() ([]byte, error), debugPrintFn func(string), sleepTime time.Duration) ([]byte, error) {
+	retryLen := 0
 	var lastStdout []byte
 	var lastErr error
-	for i := 0; i < retries; i++ {
+	for i := 0; i <= retries; i++ {
 		res, err := f()
 		lastErr = err
 		lastStdout = res
@@ -60,9 +61,8 @@ func (s StreamExec) execWithRetries(retries int, f func() ([]byte, error)) ([]by
 			// we're done, complete
 			return res, nil
 		}
-		// todo - make this configurable
-		s.debugPrint(fmt.Sprintf("retrying... attempt %d", i))
-		time.Sleep(1 + time.Duration(retryLen)*time.Second)
+		debugPrintFn(fmt.Sprintf("retry attempt %d", i))
+		time.Sleep(1 + time.Duration(retryLen)*sleepTime)
 		retryLen = retryLen * retryLen
 	}
 	return lastStdout, lastErr

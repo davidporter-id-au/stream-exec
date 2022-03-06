@@ -9,7 +9,8 @@ type Options struct {
 	IncomingBufferSize int
 	Concurrency        int
 	ContinueOnErr      bool
-	OutputDebugMode    bool
+	DryRun             bool
+	DebugMode          bool
 	Params             Params
 }
 
