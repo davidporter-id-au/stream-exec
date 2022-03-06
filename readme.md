@@ -53,3 +53,23 @@ linux:
 curl -L https://github.com/davidporter-id-au/stream-exec/releases/download/0.0.3/stream-exec_linux \
   -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
 ```
+
+#### Flags
+```
+  -concurrency int
+        number of concurrent operations (default 10)
+  -continue
+        continue on error
+  -debug
+        enable debug logging
+  -dry-run
+        show what would run
+  -err-log-path string
+        where to write the error log, leave as '' for none (default "error-output-2022-03-06__00_05_20-08.log")
+  -exec string
+        the thing to run
+  -output-log-path string
+        where to write the output log, leave as '' for none
+  -retries int
+        the number of attempts to retry failures
+```
