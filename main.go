@@ -2,10 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
-	"time"
 
 	streamexec "github.com/davidporter-id-au/stream-exec/stream-exec"
 )
@@ -28,7 +26,7 @@ func main() {
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would run")
 	flag.BoolVar(&debug, "debug", false, "enable debug logging")
 	flag.StringVar(&outputLogPath, "output-log-path", "", "where to write the output log, leave as '' for none")
-	flag.StringVar(&errorLogPath, "err-log-path", fmt.Sprintf("error-output-%s.log", time.Now().Format("2006-01-02__15_04_05Z07")), "where to write the error log, leave as '' for none")
+	flag.StringVar(&errorLogPath, "err-log-path", "", "where to write the error log, leave as '' for none")
 
 	flag.Parse()
 
