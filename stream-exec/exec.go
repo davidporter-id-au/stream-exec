@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -18,7 +19,7 @@ func (s *StreamExec) exec(envvars []string) (*Result, error) {
 
 	stdout, err := execWithRetries(s.options.Params.Retries, func() ([]byte, error) {
 		cmd := exec.Command("bash", "-c", s.options.Params.ExecString)
-		cmd.Env = append(cmd.Env, envvars...)
+		cmd.Env = append(os.Environ(), envvars...)
 		return cmd.CombinedOutput()
 	}, s.debugPrint,
 		time.Second) // todo, make this configurable
