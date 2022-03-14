@@ -22,10 +22,6 @@ In this example the json keys 'user' and 'document' have been set as environment
 
 For JSON subkeys, strings, integers are assigned directly. JSON objects and arrays are JSON stringified and set to the JSON key.
 
-#### demo
-
-[![asciicast](https://asciinema.org/a/O8exdQNliCZ5gdxU4D7yjFjC0.svg)](https://asciinema.org/a/O8exdQNliCZ5gdxU4D7yjFjC0)
-
 #### Justification
 
 **Use-case**:
