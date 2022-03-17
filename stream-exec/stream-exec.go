@@ -173,7 +173,7 @@ func (s *StreamExec) writeErrors(err error) {
 	var result *Result
 	if s.streams.structured.err != nil {
 		if errors.As(err, &result) {
-			s.streams.structured.err.Write([]byte(fmt.Sprintf("%v", result.Structured())))
+			s.streams.structured.err.Write([]byte(fmt.Sprintf("%v\n", result.Structured())))
 		} else {
 			s.streams.structured.err.Write([]byte(fmt.Sprintf("%v\n", err.Error())))
 		}
@@ -181,7 +181,7 @@ func (s *StreamExec) writeErrors(err error) {
 	if s.streams.text.err != nil {
 		var result *Result
 		if errors.As(err, &result) {
-			s.streams.text.err.Write([]byte(fmt.Sprintf("%v", result.Text(s.options.DebugMode))))
+			s.streams.text.err.Write([]byte(fmt.Sprintf("%v\n", result.Text(s.options.DebugMode))))
 		} else {
 			s.streams.text.err.Write([]byte(fmt.Sprintf("%v\n", err.Error())))
 		}
