@@ -22,6 +22,18 @@ func TestFormattingEnvvarString(t *testing.T) {
 				"e={\"z\":\"x\"}",
 			},
 		},
+		"integer handling": {
+			input: `{"a": 1652988784000 }`,
+			expectedOutput: []string{
+				"a=1652988784000",
+			},
+		},
+		"float handling": {
+			input: `{"a": 1.5}`,
+			expectedOutput: []string{
+				"a=1.5",
+			},
+		},
 		"invalid envvar chars": {
 			input: `{" a space filed key": 1, "candleßrasser": 1}`,
 			expectedOutput: []string{

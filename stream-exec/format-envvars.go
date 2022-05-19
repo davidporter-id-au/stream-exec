@@ -24,10 +24,25 @@ func formatEnvString(incoming string) ([]string, error) {
 }
 
 func convert(val interface{}) string {
+
 	switch v := val.(type) {
 	case nil:
 		return ""
-	case int, int8, int16, int32, int64, float32, float64:
+	case int, int8, int16, int32, int64:
+		// probably will never work because json doesn't do ints
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+
+		// attempt to cast to int just in case
+		f, ok := v.(float64) 
+		if ok {
+			i := int(f)	
+			if float64(i) == f {
+				// actually fine as an integer
+				return fmt.Sprintf("%d", i)
+			}
+		}
+
 		return fmt.Sprintf("%v", v)
 	case string:
 		return v
