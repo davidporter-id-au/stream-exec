@@ -45,12 +45,12 @@ Because I don't *think* it's integrated with JSON lines. it's near-certainly mor
 #### Installation
 osx:
 ```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/download/0.0.6/stream-exec_darwin \
+curl -L https://github.com/davidporter-id-au/stream-exec/releases/download/0.0.7/stream-exec_darwin \
   -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
 ```
 linux:
 ```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/download/0.0.6/stream-exec_linux \
+curl -L https://github.com/davidporter-id-au/stream-exec/releases/download/0.0.7/stream-exec_linux \
   -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
 ```
 
