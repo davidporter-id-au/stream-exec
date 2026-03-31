@@ -21,7 +21,7 @@ func main() {
 
 	flag.StringVar(&execString, "exec", "", "the thing to run")
 	flag.BoolVar(&continueOnError, "continue", false, "continue on error")
-	flag.IntVar(&concurrency, "concurrency", 10, "number of concurrent operations")
+	flag.IntVar(&concurrency, "concurrency", 1, "number of concurrent operations")
 	flag.IntVar(&retries, "retries", 0, "the number of attempts to retry failures")
 	flag.BoolVar(&dryRun, "dry-run", false, "show what would run")
 	flag.BoolVar(&debug, "debug", false, "enable debug logging")
