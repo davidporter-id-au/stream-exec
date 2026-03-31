@@ -43,21 +43,31 @@ Why not use gnu-parallel?
 Because I don't *think* it's integrated with JSON lines. it's near-certainly more powerful, and in nearly every other use-case I'd suggest preferring it or xargs over this.
 
 #### Installation
-osx:
+macOS (Apple Silicon):
 ```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/download/0.0.7/stream-exec_darwin \
+curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_darwin_arm64 \
   -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
 ```
-linux:
+macOS (Intel):
 ```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/download/0.0.7/stream-exec_linux \
+curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_darwin_amd64 \
+  -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
+```
+Linux (amd64):
+```
+curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_linux_amd64 \
+  -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
+```
+Linux (arm64):
+```
+curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_linux_arm64 \
   -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
 ```
 
 #### Flags
 ```
   -concurrency int
-        number of concurrent operations (default 10)
+        number of concurrent operations (default 1)
   -continue
         continue on error
   -debug
