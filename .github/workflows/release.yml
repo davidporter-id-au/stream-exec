@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests
+        run: go test ./... -timeout 120s
+
+      - name: Build binaries
+        run: |
+          GOOS=darwin  GOARCH=amd64 go build -o stream-exec_darwin_amd64  main.go
+          GOOS=darwin  GOARCH=arm64 go build -o stream-exec_darwin_arm64  main.go
+          GOOS=linux   GOARCH=amd64 go build -o stream-exec_linux_amd64   main.go
+          GOOS=linux   GOARCH=arm64 go build -o stream-exec_linux_arm64   main.go
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            stream-exec_darwin_amd64
+            stream-exec_darwin_arm64
+            stream-exec_linux_amd64
+            stream-exec_linux_arm64
+          generate_release_notes: true

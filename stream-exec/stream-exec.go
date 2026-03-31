@@ -107,6 +107,9 @@ func (s *StreamExec) process(i int) {
 		if !ok {
 			break
 		}
+		if line == "" {
+			continue
+		}
 		envvars, err := formatEnvString(line)
 		if err != nil {
 			s.errors <- fmt.Errorf("%v, original data: %q", err, line)
@@ -132,7 +135,9 @@ func (s *StreamExec) process(i int) {
 func (s *StreamExec) drain() {
 	for i := 0; i < len(s.incoming); i++ {
 		line := <-s.incoming
-
+		if line == "" {
+			continue
+		}
 		envvars, err := formatEnvString(line)
 		if err != nil {
 			s.errors <- err
@@ -256,7 +261,7 @@ func splitInputBytes(prevRemainder string, data []byte) ([]string, string) {
 	dataString := string(data)
 	cleanBlockIdx := strings.LastIndex(dataString, "\n")
 	if cleanBlockIdx < 0 {
-		return nil, dataString
+		return nil, prevRemainder + dataString
 	}
 	// a clean block is a block of text which
 	// finishes with newline, it may or may not
