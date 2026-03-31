@@ -20,7 +20,17 @@ cat records.json | stream-exec --exec 'curl -X POST http://example.com/$document
 
 In this example the json keys 'user' and 'document' have been set as environment variables and are accessible by the subprocess.
 
-For JSON subkeys, strings, integers are assigned directly. JSON objects and arrays are JSON stringified and set to the JSON key.
+For a simpler example:
+
+```sh
+$ echo '{"user": "alice", "account": 123 } \n {"user": "bob", "account": 124}' | stream-exec --exec 'echo input: $user, $account'
+input: alice, 123
+input: bob, 124
+```
+
+For JSON subkeys, strings, integers are assigned directly. JSON objects and arrays are JSON stringified and set to the JSON key. 
+
+Variables are passed in as envvars, rather than as simple string execution for exec, but ultimately it's an extremely simple wrapper around calling bash in a (a few) subshells. Hopefully as a means to make working with JSON inputs easier on the command line.
 
 #### Justification
 
@@ -45,23 +55,18 @@ Because I don't *think* it's integrated with JSON lines. it's near-certainly mor
 #### Installation
 macOS (Apple Silicon):
 ```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_darwin_arm64 \
-  -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
-```
-macOS (Intel):
-```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_darwin_amd64 \
-  -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
+sudo curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_darwin_arm64 \
+  -o /usr/local/bin/stream-exec && sudo chmod +x /usr/local/bin/stream-exec
 ```
 Linux (amd64):
 ```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_linux_amd64 \
-  -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
+sudo curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_linux_amd64 \
+  -o /usr/local/bin/stream-exec && sudo chmod +x /usr/local/bin/stream-exec
 ```
 Linux (arm64):
 ```
-curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_linux_arm64 \
-  -o /usr/local/bin/stream-exec && chmod +x /usr/local/bin/stream-exec
+sudo curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/download/stream-exec_linux_arm64 \
+  -o /usr/local/bin/stream-exec && sudo chmod +x /usr/local/bin/stream-exec
 ```
 
 #### Flags
