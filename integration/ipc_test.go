@@ -162,6 +162,71 @@ func TestIPCStaleSocketCleaned(t *testing.T) {
 	assert.True(t, os.IsNotExist(statErr), "stale socket should have been removed")
 }
 
+// TestIPCSetConcurrency verifies that signalling a running process to change its
+// concurrency takes effect and is reflected in the status response.
+//
+// Scale-up is immediately visible (goroutines start and increment the counter
+// before picking up any work). Scale-down only takes effect between jobs, so
+// we poll until in-flight jobs finish and workers check the scaleDn channel.
+func TestIPCSetConcurrency(t *testing.T) {
+	// 20 jobs sleeping 200ms each: enough work that the process stays alive
+	// for the whole test, but jobs finish fast enough for scale-down to be
+	// observable within a reasonable poll window.
+	var sb strings.Builder
+	for i := 0; i < 20; i++ {
+		fmt.Fprintf(&sb, `{"i":%d}`+"\n", i)
+	}
+
+	cmd, wait := startBackground(t,
+		sb.String(),
+		"run", "--exec", "sleep 0.2 && echo $i",
+		"--concurrency", "1",
+		"--continue",
+	)
+	defer func() {
+		cmd.Process.Kill()
+		wait()
+	}()
+
+	waitForSocket(t, cmd.Process.Pid)
+	sock := streamexec.SocketPath(cmd.Process.Pid)
+
+	// Confirm initial concurrency is 1.
+	resp, err := streamexec.QuerySocket(sock, "status")
+	require.NoError(t, err)
+	require.True(t, resp.OK)
+	assert.Equal(t, int64(1), resp.Status.Concurrency)
+
+	// Scale up to 5. Goroutines start immediately so the counter should
+	// reach 5 within a short poll window.
+	resp, err = streamexec.QuerySocket(sock, "set-concurrency", 5)
+	require.NoError(t, err)
+	require.True(t, resp.OK, "set-concurrency failed: %s", resp.Error)
+
+	require.Eventually(t, func() bool {
+		r, err := streamexec.QuerySocket(sock, "status")
+		return err == nil && r.OK && r.Status.Concurrency == 5
+	}, 2*time.Second, 50*time.Millisecond, "concurrency did not reach 5 after scale-up")
+
+	// Scale down to 2. Workers only consume the scaleDn token between jobs,
+	// so poll until they've had a chance to do so.
+	resp, err = streamexec.QuerySocket(sock, "set-concurrency", 2)
+	require.NoError(t, err)
+	require.True(t, resp.OK)
+
+	require.Eventually(t, func() bool {
+		r, err := streamexec.QuerySocket(sock, "status")
+		return err == nil && r.OK && r.Status.Concurrency <= 2
+	}, 3*time.Second, 50*time.Millisecond, "concurrency did not drop to ≤ 2 after scale-down")
+
+	// Verify the CLI path: stream-exec signal concurrency --pid <pid> --concurrency 3
+	out, cliErr := exec.Command(binaryPath, "signal", "concurrency",
+		"--pid", fmt.Sprintf("%d", cmd.Process.Pid),
+		"--concurrency", "3").CombinedOutput()
+	require.NoError(t, cliErr, "CLI signal concurrency failed: %s", out)
+	assert.Contains(t, string(out), "concurrency")
+}
+
 // TestIPCStatusJSON verifies the raw JSON shape of the status response.
 func TestIPCStatusJSON(t *testing.T) {
 	var lines []string

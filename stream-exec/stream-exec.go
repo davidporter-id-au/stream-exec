@@ -27,18 +27,21 @@ type streams struct {
 }
 
 type StreamExec struct {
-	processed int64
-	failed    int64
-	inFlight  int64
+	processed          int64
+	failed             int64
+	inFlight           int64
+	currentConcurrency int64
 
 	streams    streams
 	errors     chan error
 	incoming   chan string
+	scaleDn    chan struct{}
 	readWG     sync.WaitGroup
 	writeWG    sync.WaitGroup
 	errWG      sync.WaitGroup
 	options    Options
 	startTime  time.Time
+	ctx        context.Context
 	cancel     context.CancelFunc
 	ipcCleanup func()
 }
@@ -88,6 +91,7 @@ func New(inputstream io.ReadCloser, outputstream io.WriteCloser, errStream io.Wr
 		readWG:   wg,
 		errors:   errChan,
 		incoming: incomingBuffer,
+		scaleDn:  make(chan struct{}, 1024),
 		options:  o,
 	}
 }
@@ -96,6 +100,7 @@ func (s *StreamExec) Run() error {
 	s.startTime = time.Now()
 
 	ctx, cancel := context.WithCancel(context.Background())
+	s.ctx = ctx
 	s.cancel = cancel
 
 	ipcCleanup, err := s.startIPCServer(cancel)
@@ -137,24 +142,31 @@ func (s *StreamExec) Run() error {
 
 // takes a block of data and joins it from the incoming datastream
 func (s *StreamExec) process(ctx context.Context, i int) {
+	atomic.AddInt64(&s.currentConcurrency, 1)
+	defer func() {
+		atomic.AddInt64(&s.currentConcurrency, -1)
+		s.writeWG.Done()
+	}()
+
 	for {
-		// Prioritised cancellation check: if ctx is already done, exit
-		// immediately without picking up another item.
+		// Prioritised check: honour cancellation or a scale-down signal
+		// before picking up another item.
 		select {
 		case <-ctx.Done():
-			s.writeWG.Done()
+			return
+		case <-s.scaleDn:
 			return
 		default:
 		}
 
-		// Block until a line arrives or cancellation fires.
+		// Block until a line arrives, cancellation fires, or we're scaled down.
 		select {
 		case <-ctx.Done():
-			s.writeWG.Done()
+			return
+		case <-s.scaleDn:
 			return
 		case line, ok := <-s.incoming:
 			if !ok {
-				s.writeWG.Done()
 				return
 			}
 			if line == "" {
@@ -181,6 +193,25 @@ func (s *StreamExec) process(ctx context.Context, i int) {
 			if err != nil {
 				s.errors <- err
 			}
+		}
+	}
+}
+
+// SetConcurrency adjusts the number of active worker goroutines.
+// Safe to call from any goroutine while Run() is executing.
+func (s *StreamExec) SetConcurrency(n int) {
+	if n <= 0 || s.ctx == nil || s.ctx.Err() != nil {
+		return
+	}
+	current := int(atomic.LoadInt64(&s.currentConcurrency))
+	if n > current {
+		for i := 0; i < n-current; i++ {
+			s.writeWG.Add(1)
+			go s.process(s.ctx, current+i)
+		}
+	} else if n < current {
+		for i := 0; i < current-n; i++ {
+			s.scaleDn <- struct{}{}
 		}
 	}
 }

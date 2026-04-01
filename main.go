@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	_flagExecCmd       = "exec-command"
+	_flagExecCmd       = "exec"
 	_flagConcurrency   = "concurrency"
 	_flagRetries       = "retries"
 	_flagContinue      = "continue"
@@ -21,6 +21,13 @@ const (
 	_flagDebug         = "debug"
 	_flagOutputLogPath = "output-log-path"
 	_flagErrLogPath    = "err-log-path"
+
+	_flagPID            = "pid"
+	_flagSetConcurrency = "concurrency"
+
+	_ipcCmdStatus         = "status"
+	_ipcCmdStop           = "stop"
+	_ipcCmdSetConcurrency = "set-concurrency"
 )
 
 func main() {
@@ -47,7 +54,7 @@ func cmdRun() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    _flagExecCmd,
-				Aliases: []string{"x"},
+				Aliases: []string{"x", "exec-command"},
 				Usage: `bash command to run for each record (required). 
 JSON variables for each line of input will be available as their key name. For example, given an input of JSON lines:
 
@@ -121,16 +128,16 @@ func cmdList() *cli.Command {
 		Name:  "list",
 		Usage: "list running stream-exec processes",
 		Action: func(c *cli.Context) error {
-			sockets, _ := filepath.Glob(filepath.Join(streamexec.SocketDir(), "*.sock"))
+			sockets := listSockets()
 			if len(sockets) == 0 {
 				fmt.Println("no running stream-exec processes found")
 				return nil
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintln(w, "PID\tRUNNING\tDONE\tFAILED\tIN-FLIGHT\tEXEC")
+			fmt.Fprintln(w, "PID\tRUNNING\tDONE\tFAILED\tIN-FLIGHT\tCONCURRENCY\tEXEC")
 			for _, sock := range sockets {
-				resp, err := streamexec.QuerySocket(sock, "status")
+				resp, err := streamexec.QuerySocket(sock, _ipcCmdStatus)
 				if err != nil {
 					os.Remove(sock)
 					continue
@@ -144,8 +151,8 @@ func cmdList() *cli.Command {
 					execStr = execStr[:47] + "..."
 				}
 				running := time.Since(st.StartTime).Round(time.Second).String()
-				fmt.Fprintf(w, "%d\t%s\t%d\t%d\t%d\t%s\n",
-					st.PID, running, st.Processed, st.Failed, st.InFlight, execStr)
+				fmt.Fprintf(w, "%d\t%s\t%d\t%d\t%d\t%d\t%s\n",
+					st.PID, running, st.Processed, st.Failed, st.InFlight, st.Concurrency, execStr)
 			}
 			w.Flush()
 			return nil
@@ -168,7 +175,7 @@ func cmdSignal() *cli.Command {
 					}
 					pid := c.Args().First()
 					sock := filepath.Join(streamexec.SocketDir(), pid+".sock")
-					resp, err := streamexec.QuerySocket(sock, "stop")
+					resp, err := streamexec.QuerySocket(sock, _ipcCmdStop)
 					if err != nil {
 						return cli.Exit(fmt.Sprintf("could not connect to process %s: %v", pid, err), 1)
 					}
@@ -179,6 +186,70 @@ func cmdSignal() *cli.Command {
 					return nil
 				},
 			},
+			{
+				Name:  "concurrency",
+				Usage: "change the number of concurrent workers for a running process",
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:  _flagPID,
+						Usage: "PID of the target stream-exec process",
+					},
+					&cli.IntFlag{
+						Name:     _flagSetConcurrency,
+						Aliases:  []string{"c"},
+						Usage:    "new concurrency value (must be > 0)",
+						Required: true,
+					},
+				},
+				Action: func(c *cli.Context) error {
+					pid := c.Int(_flagPID)
+					n := c.Int(_flagSetConcurrency)
+					if n <= 0 {
+						return cli.Exit("concurrency must be a positive integer", 1)
+					}
+
+					// grab the running processes, if there's only one, we'll signal it for ergonomics
+					if pid <= 0 {
+						sockets := listSockets()
+						if len(sockets) != 1 {
+							return cli.Exit("the pid of the running instance needs to be specified with --pid", 1)
+						}
+						pid = getOnlyRunningInstance(sockets[0])
+					}
+
+					sock := streamexec.SocketPath(pid)
+
+					resp, err := streamexec.QuerySocket(sock, _ipcCmdSetConcurrency, n)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("could not connect to process %d: %v", pid, err), 1)
+					}
+					if !resp.OK {
+						return cli.Exit(fmt.Sprintf("set-concurrency failed: %s", resp.Error), 1)
+					}
+					if resp.Status != nil {
+						fmt.Printf("concurrency set. scaling up/down make take a moment (pid %d)\n", pid)
+					} else {
+						fmt.Printf("concurrency updated for process %d\n", pid)
+					}
+					return nil
+				},
+			},
 		},
 	}
+}
+
+func getOnlyRunningInstance(socket string) int {
+	resp, err := streamexec.QuerySocket(socket, _ipcCmdStatus)
+	if err != nil {
+		cli.Exit("coulkdn't connect to pid automatically, specify the pid manually with --pid", 1)
+	}
+	if !resp.OK || resp.Status == nil {
+		cli.Exit("coulkdn't connect to pid automatically, specify the pid manually with --pid", 1)
+	}
+	return resp.Status.PID
+}
+
+func listSockets() []string {
+	sockets, _ := filepath.Glob(filepath.Join(streamexec.SocketDir(), "*.sock"))
+	return sockets
 }

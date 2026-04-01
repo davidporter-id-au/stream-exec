@@ -31,7 +31,14 @@ PID    RUNNING  DONE  FAILED  IN-FLIGHT  EXEC
 54858  23s      7     154     1          grep -qrO $word
 ```
 
-And to signal it to stop:
+To set the concurrency of a running instance, use the `signal` subcommand
+
+```sh
+$ stream-exec signal concurrency --concurrency 5 --pid 54858  
+concurrency set. scaling up/down make take a moment (pid 54858)
+```
+
+And to signal it to stop gracefully:
 ```sh
 $ stream-exec signal stop 54858
 sent stop signal to process 54858
