@@ -1,6 +1,7 @@
 package streamexec
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 
-func (s *StreamExec) exec(envvars []string) (*Result, error) {
+func (s *StreamExec) exec(ctx context.Context, envvars []string) (*Result, error) {
 
 	if s.options.DryRun {
 		log.Printf("Dry-run: bash -c '%s'\n", s.options.Params.ExecString)
@@ -18,7 +19,7 @@ func (s *StreamExec) exec(envvars []string) (*Result, error) {
 	}
 
 	stdout, err := execWithRetries(s.options.Params.Retries, func() ([]byte, error) {
-		cmd := exec.Command("bash", "-c", s.options.Params.ExecString)
+		cmd := exec.CommandContext(ctx, "bash", "-c", s.options.Params.ExecString)
 		cmd.Env = append(os.Environ(), envvars...)
 		return cmd.CombinedOutput()
 	}, s.debugPrint,
