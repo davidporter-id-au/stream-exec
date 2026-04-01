@@ -35,10 +35,10 @@ type result struct {
 	exitCode int
 }
 
-// run executes the binary with the given args and stdin content.
+// run executes the binary's "run" subcommand with the given args and stdin content.
 func run(t *testing.T, stdin string, args ...string) result {
 	t.Helper()
-	cmd := exec.Command(binaryPath, args...)
+	cmd := exec.Command(binaryPath, append([]string{"run"}, args...)...)
 	cmd.Stdin = bytes.NewBufferString(stdin)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -20,7 +20,7 @@ func TestHighConcurrencyAllRecordsProcessed(t *testing.T) {
 		lines = append(lines, fmt.Sprintf(`{"id":%d}`, i))
 	}
 
-	r := run(t, strings.Join(lines, "\n"), "-exec", "echo $id", "-concurrency", "20")
+	r := run(t, strings.Join(lines, "\n"), "--exec", "echo $id", "--concurrency", "20")
 	require.Equal(t, 0, r.exitCode)
 
 	// collect every output line that is purely numeric
@@ -51,8 +51,8 @@ func TestConcurrencyIsActuallyParallel(t *testing.T) {
 	start := time.Now()
 	r := run(t,
 		strings.Join(lines, "\n"),
-		"-exec", fmt.Sprintf("sleep 0.%d && echo $i", sleepMs/10),
-		"-concurrency", strconv.Itoa(workers),
+		"--exec", fmt.Sprintf("sleep 0.%d && echo $i", sleepMs/10),
+		"--concurrency", strconv.Itoa(workers),
 	)
 	elapsed := time.Since(start)
 
@@ -76,7 +76,7 @@ func TestConcurrentOutputOrderIsNonDeterministic(t *testing.T) {
 		lines = append(lines, fmt.Sprintf(`{"seq":%d}`, i))
 	}
 
-	r := run(t, strings.Join(lines, "\n"), "-exec", "echo $seq", "-concurrency", "10")
+	r := run(t, strings.Join(lines, "\n"), "--exec", "echo $seq", "--concurrency", "10")
 	require.Equal(t, 0, r.exitCode)
 
 	var got []int
@@ -105,7 +105,7 @@ func TestSerialConcurrencyPreservesOrder(t *testing.T) {
 		lines = append(lines, fmt.Sprintf(`{"seq":%d}`, i))
 	}
 
-	r := run(t, strings.Join(lines, "\n"), "-exec", "echo $seq", "-concurrency", "1")
+	r := run(t, strings.Join(lines, "\n"), "--exec", "echo $seq", "--concurrency", "1")
 	require.Equal(t, 0, r.exitCode)
 
 	var got []int

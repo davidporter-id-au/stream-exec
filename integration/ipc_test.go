@@ -62,8 +62,8 @@ func TestIPCStatus(t *testing.T) {
 
 	cmd, wait := startBackground(t,
 		strings.Join(lines, "\n"),
-		"-exec", "sleep 0.3 && echo $i",
-		"-concurrency", "2",
+		"run", "--exec", "sleep 0.3 && echo $i",
+		"--concurrency", "2",
 	)
 
 	waitForSocket(t, cmd.Process.Pid)
@@ -93,14 +93,14 @@ func TestIPCStop(t *testing.T) {
 
 	cmd, wait := startBackground(t,
 		sb.String(),
-		"-exec", "sleep 10",
-		"-concurrency", "3",
-		"-continue",
+		"run", "--exec", "sleep 10",
+		"--concurrency", "3",
+		"--continue",
 	)
 
 	waitForSocket(t, cmd.Process.Pid)
 
-	stopOut, err := exec.Command(binaryPath, "-stop", fmt.Sprintf("%d", cmd.Process.Pid)).CombinedOutput()
+	stopOut, err := exec.Command(binaryPath, "signal", "stop", fmt.Sprintf("%d", cmd.Process.Pid)).CombinedOutput()
 	require.NoError(t, err, "stop command failed: %s", stopOut)
 	assert.Contains(t, string(stopOut), "sent stop signal")
 
@@ -125,14 +125,14 @@ func TestIPCList(t *testing.T) {
 
 	cmd, wait := startBackground(t,
 		strings.Join(lines, "\n"),
-		"-exec", "sleep 0.3 && echo $i",
-		"-concurrency", "2",
+		"run", "--exec", "sleep 0.3 && echo $i",
+		"--concurrency", "2",
 	)
 	defer wait()
 
 	waitForSocket(t, cmd.Process.Pid)
 
-	listOut, err := exec.Command(binaryPath, "-list").CombinedOutput()
+	listOut, err := exec.Command(binaryPath, "list").CombinedOutput()
 	require.NoError(t, err)
 
 	output := string(listOut)
@@ -153,8 +153,8 @@ func TestIPCStaleSocketCleaned(t *testing.T) {
 	f.Close()
 	t.Cleanup(func() { os.Remove(stalePath) })
 
-	// --list should not error; it should skip/remove the stale socket
-	out, err := exec.Command(binaryPath, "-list").CombinedOutput()
+	// list should not error; it should skip/remove the stale socket
+	out, err := exec.Command(binaryPath, "list").CombinedOutput()
 	assert.NoError(t, err, "output: %s", out)
 
 	// The stale file should have been removed
@@ -171,8 +171,8 @@ func TestIPCStatusJSON(t *testing.T) {
 
 	cmd, wait := startBackground(t,
 		strings.Join(lines, "\n"),
-		"-exec", "sleep 0.3 && echo $i",
-		"-concurrency", "2",
+		"run", "--exec", "sleep 0.3 && echo $i",
+		"--concurrency", "2",
 	)
 	defer wait()
 

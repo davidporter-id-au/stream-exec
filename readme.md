@@ -1,11 +1,10 @@
-### JSON stream-exec
+## stream-exec
 
-takes a stream of JSON lines and executes a bash command, with the base json variables subsituted in as Envvars.
+#### Running commands
 
-This is just a convenience function for the typical use-case of looping over recorrds in some data-set, to perform some side-effect such as a network
-request.
+A convenient way to run a bash command each time for a set of data inputs. Takes a stream of JSON lines and executes a bash command, with the base json variables subsituted in as Envvars.
 
-Given a file of json lines:
+eg: Given a file of json lines:
 
 ```json
 {"user": "123", "document": 456}
@@ -15,22 +14,28 @@ Given a file of json lines:
 Execute an arbitrary shell command with parallelism and retries:
 
 ```bash
-cat records.json | stream-exec --exec 'curl -X POST http://example.com/$document -d "{\"user\": \"$user\" }"' --concurrency 10 --continue
+cat records.json | stream-exec run --x 'curl http://example.com/$user/$document/ --concurrency 10 --continue
 ```
 
-In this example the json keys 'user' and 'document' have been set as environment variables and are accessible by the subprocess.
-
-For a simpler example:
-
-```sh
-$ echo '{"user": "alice", "account": 123 } \n {"user": "bob", "account": 124}' | stream-exec --exec 'echo input: $user, $account'
-input: alice, 123
-input: bob, 124
-```
-
-For JSON subkeys, strings, integers are assigned directly. JSON objects and arrays are JSON stringified and set to the JSON key. 
+In this example the json keys 'user' and 'document' have been set as environment variables 'user' and 'document' and are accessible by the subprocess.
 
 Variables are passed in as envvars, rather than as simple string execution for exec, but ultimately it's an extremely simple wrapper around calling bash in a (a few) subshells. Hopefully as a means to make working with JSON inputs easier on the command line.
+
+#### Monitoring and adjusting a running command
+
+To find the running process:
+
+```sh
+$ stream-exec list
+PID    RUNNING  DONE  FAILED  IN-FLIGHT  EXEC
+54858  23s      7     154     1          grep -qrO $word
+```
+
+And to signal it to stop:
+```sh
+$ stream-exec signal stop 54858
+sent stop signal to process 54858
+```
 
 #### Justification
 
@@ -69,22 +74,35 @@ sudo curl -L https://github.com/davidporter-id-au/stream-exec/releases/latest/do
   -o /usr/local/bin/stream-exec && sudo chmod +x /usr/local/bin/stream-exec
 ```
 
-#### Flags
+#### Commands
+
+**`stream-exec run`** — process a JSON lines stream
+
 ```
-  -concurrency int
-        number of concurrent operations (default 1)
-  -continue
-        continue on error
-  -debug
-        enable debug logging
-  -dry-run
-        show what would run
-  -err-log-path string
-        where to write the error log, leave as '' for none (default "error-output-2022-03-06__00_05_20-08.log")
-  -exec string
-        the thing to run
-  -output-log-path string
-        where to write the output log, leave as '' for none
-  -retries int
-        the number of attempts to retry failures
+stream-exec run --exec <cmd> [options]
+
+  --exec string          the command to run (required)
+  --concurrency int      number of concurrent operations (default 1)
+  --continue             continue on error
+  --retries int          number of retry attempts on failure
+  --dry-run              show what would run without executing
+  --debug                enable debug logging
+  --output-log-path      file to write stdout log (default: none)
+  --err-log-path         file to write error log (default: auto-named .log)
 ```
+
+**`stream-exec list`** — list running stream-exec processes
+
+```
+stream-exec list
+```
+
+Scans for active stream-exec processes and displays their PID, start time, and exec string.
+
+**`stream-exec signal stop <pid>`** — stop a running process
+
+```
+stream-exec signal stop <pid>
+```
+
+Sends a graceful stop signal to the process with the given PID. In-flight commands are cancelled and the process exits cleanly.

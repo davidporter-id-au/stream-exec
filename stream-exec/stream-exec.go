@@ -27,7 +27,6 @@ type streams struct {
 }
 
 type StreamExec struct {
-	// 64-bit atomics first for 32-bit alignment safety
 	processed int64
 	failed    int64
 	inFlight  int64
@@ -230,7 +229,7 @@ func (s *StreamExec) writeOutput(res Result) error {
 	return nil
 }
 
-func (s StreamExec) debugPrint(debugMsg string) {
+func (s *StreamExec) debugPrint(debugMsg string) {
 	if s.options.DebugMode {
 		// stdout
 		s.streams.text.output.Write([]byte(fmt.Sprintf("%s\n", debugMsg)))
