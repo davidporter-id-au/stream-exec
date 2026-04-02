@@ -4,7 +4,6 @@ const defaultConcurrency = 10
 const defaultInputByteLen = 5000
 
 type Options struct {
-	ErrorLog           string
 	OutputLog          string
 	IncomingBufferSize int
 	Concurrency        int

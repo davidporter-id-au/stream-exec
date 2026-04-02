@@ -79,6 +79,7 @@ To make this less messy, putting the actual request as a sub-script will make th
 ```shell
 $ cat request.sh
 curl 'https://goweather.xyz/v2/weather/$city' \
+  --fail \
   -H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7' \
   -H 'accept-language: en-AU,en-US;q=0.9,en-GB;q=0.8,en;q=0.7' \
   -H 'sec-ch-ua: "Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"' \
@@ -87,9 +88,9 @@ curl 'https://goweather.xyz/v2/weather/$city' \
 
 However, rather than looping in the bash script or trying to do concurrency-control there, stream exec will handle all of that, allowing the script author just to focus on the functionality of the request. 
 
-```
+```sh
 # kick off the requests, keep it under 0.5 RPS so the API is happy and write out the data to output structured log
-cat cities.json | stream-exec run -x './request.sh' --rps 0.5 --continue --output-log-path data.json 
+cat cities.json | stream-exec run -x './request.sh' --rps 0.5 --continue --output-log-path outputlog.json 
 ```
 
 This will actually fail, since I forgot to handle the space in 'New York'. I can go find the failures in the output log

@@ -33,19 +33,19 @@ type StreamExec struct {
 	inFlight           int64
 	currentConcurrency int64
 
-	streams    streams
-	errors     chan error
-	incoming   chan string
-	scaleDn  chan struct{}
+	streams     streams
+	errors      chan error
+	incoming    chan string
+	scaleDn     chan struct{}
 	rateLimiter *rate.Limiter // nil when RPS is unlimited
-	readWG     sync.WaitGroup
-	writeWG    sync.WaitGroup
-	errWG      sync.WaitGroup
-	options    Options
-	startTime  time.Time
-	ctx        context.Context
-	cancel     context.CancelFunc
-	ipcCleanup func()
+	readWG      sync.WaitGroup
+	writeWG     sync.WaitGroup
+	errWG       sync.WaitGroup
+	options     Options
+	startTime   time.Time
+	ctx         context.Context
+	cancel      context.CancelFunc
+	ipcCleanup  func()
 }
 
 func New(inputstream io.ReadCloser, outputstream io.WriteCloser, errStream io.WriteCloser, o Options) *StreamExec {
@@ -69,15 +69,6 @@ func New(inputstream io.ReadCloser, outputstream io.WriteCloser, errStream io.Wr
 		outputFile = f
 	}
 
-	var errFile io.WriteCloser
-	if o.ErrorLog != "" {
-		e, err := os.OpenFile(o.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatalf("attempted to open a file for error logging, but couldn't: %v", err)
-		}
-		errFile = e
-	}
-
 	return &StreamExec{
 		streams: streams{
 			input: inputstream,
@@ -87,7 +78,6 @@ func New(inputstream io.ReadCloser, outputstream io.WriteCloser, errStream io.Wr
 			},
 			structured: streamgroup{
 				output: outputFile,
-				err:    errFile,
 			},
 		},
 		readWG:   wg,
@@ -249,7 +239,7 @@ func (s *StreamExec) drain(ctx context.Context) {
 		}
 		if !resultErr.Succeeded {
 			atomic.AddInt64(&s.failed, 1)
-			s.errors <- err
+			s.errors <- resultErr
 		} else {
 			atomic.AddInt64(&s.processed, 1)
 		}
@@ -265,8 +255,11 @@ func (s *StreamExec) writeOutput(res Result) error {
 	if s.streams.structured.output != nil {
 		s.streams.structured.output.Write([]byte(fmt.Sprintf("%v\n", res.Structured())))
 	}
-	if s.streams.text.output != nil {
+	if res.Succeeded {
 		s.streams.text.output.Write([]byte(fmt.Sprintf("%v", res.Text(s.options.DebugMode))))
+	} else {
+		// write to sterr
+		s.streams.text.err.Write([]byte(fmt.Sprintf("%v\n", res.Error())))
 	}
 	return nil
 }
@@ -296,9 +289,6 @@ func (s *StreamExec) closeAll() {
 	if s.ipcCleanup != nil {
 		s.ipcCleanup()
 		s.ipcCleanup = nil
-	}
-	if s.streams.structured.err != nil {
-		s.streams.structured.err.Close()
 	}
 	if s.streams.structured.output != nil {
 		s.streams.structured.output.Close()
