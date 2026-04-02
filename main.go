@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -20,6 +23,7 @@ const (
 	_flagDryRun           = "dry-run"
 	_flagDebug            = "debug"
 	_flagOutputLogPath    = "output-log-path"
+	_flagInputFile        = "input-json-file"
 	_flagRPS              = "rps"
 	_flagPID              = "pid"
 	_flagSetConcurrency   = "concurrency"
@@ -97,6 +101,10 @@ Keys are normalised to make them safe for use in shell, so the key 'a-b' is avai
 				Name:  _flagOutputLogPath,
 				Usage: "write successful results as JSON lines to `file`",
 			},
+			&cli.StringFlag{
+				Name:  _flagInputFile,
+				Usage: "read input from a JSON `file` instead of stdin (JSON lines or a top-level JSON array)",
+			},
 			&cli.Float64Flag{
 				Name:  _flagRPS,
 				Usage: "max executions per second across all workers (0 = unlimited)",
@@ -116,7 +124,15 @@ Keys are normalised to make them safe for use in shell, so the key 'a-b' is avai
 				DryRun:        c.Bool(_flagDryRun),
 				RPS:           c.Float64(_flagRPS),
 			}
-			ex := streamexec.New(os.Stdin, os.Stdout, os.Stderr, options)
+			input := io.ReadCloser(os.Stdin)
+			if path := c.String(_flagInputFile); path != "" {
+				f, err := openInputFile(path)
+				if err != nil {
+					return cli.Exit(fmt.Sprintf("cannot open input file: %v", err), 1)
+				}
+				input = f
+			}
+			ex := streamexec.New(input, os.Stdout, os.Stderr, options)
 			return ex.Run()
 		},
 	}
@@ -251,4 +267,67 @@ func getOnlyRunningInstance(socket string) int {
 func listSockets() []string {
 	sockets, _ := filepath.Glob(filepath.Join(streamexec.SocketDir(), "*.sock"))
 	return sockets
+}
+
+// openInputFile opens path and returns a ReadCloser that emits JSON lines.
+// If the file begins with '[' it is treated as a JSON array and each element
+// is streamed as an individual JSON line; otherwise the file is returned as-is
+// (JSON lines format).
+func openInputFile(path string) (io.ReadCloser, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	br := bufio.NewReader(f)
+
+	// Peek past leading whitespace to detect array vs JSON lines.
+	var first byte
+	for {
+		b, err := br.ReadByte()
+		if err != nil {
+			f.Close()
+			return nil, fmt.Errorf("reading input file: %w", err)
+		}
+		if b != ' ' && b != '\t' && b != '\n' && b != '\r' {
+			first = b
+			br.UnreadByte()
+			break
+		}
+	}
+
+	if first != '[' {
+		// JSON lines — return the buffered reader; closing closes the file.
+		return struct {
+			io.Reader
+			io.Closer
+		}{br, f}, nil
+	}
+
+	// JSON array — stream each element as a JSON line through a pipe so we
+	// never load the whole array into memory.
+	pr, pw := io.Pipe()
+	go func() {
+		defer f.Close()
+		dec := json.NewDecoder(br)
+		if _, err := dec.Token(); err != nil { // consume '['
+			pw.CloseWithError(fmt.Errorf("parsing JSON array: %w", err))
+			return
+		}
+		enc := json.NewEncoder(pw)
+		enc.SetEscapeHTML(false)
+		for dec.More() {
+			var elem json.RawMessage
+			if err := dec.Decode(&elem); err != nil {
+				pw.CloseWithError(fmt.Errorf("parsing JSON array element: %w", err))
+				return
+			}
+			if err := enc.Encode(elem); err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+		}
+		pw.Close()
+	}()
+	return pr, nil
 }
