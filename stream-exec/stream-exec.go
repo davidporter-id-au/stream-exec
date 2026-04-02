@@ -2,7 +2,6 @@ package streamexec
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +12,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 type streamgroup struct {
@@ -35,7 +36,8 @@ type StreamExec struct {
 	streams    streams
 	errors     chan error
 	incoming   chan string
-	scaleDn    chan struct{}
+	scaleDn  chan struct{}
+	rateLimiter *rate.Limiter // nil when RPS is unlimited
 	readWG     sync.WaitGroup
 	writeWG    sync.WaitGroup
 	errWG      sync.WaitGroup
@@ -121,6 +123,10 @@ func (s *StreamExec) Run() error {
 	}()
 	defer signal.Stop(sigCh)
 
+	if s.options.RPS > 0 {
+		s.rateLimiter = rate.NewLimiter(rate.Limit(s.options.RPS), 1)
+	}
+
 	defer s.closeAll()
 	s.readWG.Add(1)
 	go s.readInput(ctx, s.streams.input)
@@ -177,19 +183,24 @@ func (s *StreamExec) process(ctx context.Context, i int) {
 				s.errors <- fmt.Errorf("%v, original data: %q", err, line)
 				continue
 			}
+			if s.rateLimiter != nil {
+				if err := s.rateLimiter.Wait(ctx); err != nil {
+					return // context cancelled
+				}
+			}
 			atomic.AddInt64(&s.inFlight, 1)
-			result, err := s.exec(ctx, envvars)
+			resultErr := s.exec(ctx, envvars)
 			atomic.AddInt64(&s.inFlight, -1)
-			if err != nil {
+			if resultErr == nil {
+				continue
+			}
+			if !resultErr.Succeeded {
 				atomic.AddInt64(&s.failed, 1)
-				s.errors <- err
-				continue
+				s.errors <- resultErr
+			} else {
+				atomic.AddInt64(&s.processed, 1)
 			}
-			if result == nil {
-				continue
-			}
-			atomic.AddInt64(&s.processed, 1)
-			err = s.writeOutput(*result)
+			err = s.writeOutput(*resultErr)
 			if err != nil {
 				s.errors <- err
 			}
@@ -231,18 +242,18 @@ func (s *StreamExec) drain(ctx context.Context) {
 			continue
 		}
 		atomic.AddInt64(&s.inFlight, 1)
-		res, err := s.exec(ctx, envvars)
+		resultErr := s.exec(ctx, envvars)
 		atomic.AddInt64(&s.inFlight, -1)
-		if err != nil {
+		if resultErr == nil {
+			continue
+		}
+		if !resultErr.Succeeded {
 			atomic.AddInt64(&s.failed, 1)
 			s.errors <- err
-			continue
+		} else {
+			atomic.AddInt64(&s.processed, 1)
 		}
-		if res == nil {
-			continue
-		}
-		atomic.AddInt64(&s.processed, 1)
-		err = s.writeOutput(*res)
+		err = s.writeOutput(*resultErr)
 		if err != nil {
 			s.errors <- err
 		}
@@ -267,27 +278,6 @@ func (s *StreamExec) debugPrint(debugMsg string) {
 	}
 }
 
-func (s *StreamExec) writeErrors(err error) {
-	var result *Result
-	if s.streams.structured.err != nil {
-		if errors.As(err, &result) {
-			s.streams.structured.err.Write([]byte(fmt.Sprintf("%v\n", result.Structured())))
-		} else {
-			s.streams.structured.err.Write([]byte(fmt.Sprintf("%v\n", err.Error())))
-		}
-	}
-	if s.streams.text.err != nil {
-		var result *Result
-		if errors.As(err, &result) {
-			s.streams.text.err.Write([]byte(fmt.Sprintf("%v\n", result.Text(s.options.DebugMode))))
-		} else {
-			s.streams.text.err.Write([]byte(fmt.Sprintf("%v\n", err.Error())))
-		}
-	} else {
-		log.Println("Warning.... unhandled errors")
-	}
-}
-
 func (s *StreamExec) handleErrors() {
 	for {
 		err := <-s.errors
@@ -295,7 +285,6 @@ func (s *StreamExec) handleErrors() {
 			s.errWG.Done()
 			break // closing & cleaning up
 		}
-		s.writeErrors(err)
 		if !s.options.ContinueOnErr {
 			s.closeAll()
 			os.Exit(1)

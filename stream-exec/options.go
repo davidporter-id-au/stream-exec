@@ -11,6 +11,7 @@ type Options struct {
 	ContinueOnErr      bool
 	DryRun             bool
 	DebugMode          bool
+	RPS                float64 // max executions per second; 0 = unlimited
 	Params             Params
 }
 

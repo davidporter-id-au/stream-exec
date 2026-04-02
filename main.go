@@ -13,18 +13,16 @@ import (
 )
 
 const (
-	_flagExecCmd       = "exec"
-	_flagConcurrency   = "concurrency"
-	_flagRetries       = "retries"
-	_flagContinue      = "continue"
-	_flagDryRun        = "dry-run"
-	_flagDebug         = "debug"
-	_flagOutputLogPath = "output-log-path"
-	_flagErrLogPath    = "err-log-path"
-
-	_flagPID            = "pid"
-	_flagSetConcurrency = "concurrency"
-
+	_flagExecCmd          = "exec"
+	_flagConcurrency      = "concurrency"
+	_flagRetries          = "retries"
+	_flagContinue         = "continue"
+	_flagDryRun           = "dry-run"
+	_flagDebug            = "debug"
+	_flagOutputLogPath    = "output-log-path"
+	_flagRPS              = "rps"
+	_flagPID              = "pid"
+	_flagSetConcurrency   = "concurrency"
 	_ipcCmdStatus         = "status"
 	_ipcCmdStop           = "stop"
 	_ipcCmdSetConcurrency = "set-concurrency"
@@ -99,14 +97,14 @@ Keys are normalised to make them safe for use in shell, so the key 'a-b' is avai
 				Name:  _flagOutputLogPath,
 				Usage: "write successful results as JSON lines to `file`",
 			},
-			&cli.StringFlag{
-				Name:  _flagErrLogPath,
-				Usage: "write failures as JSON lines to `file`",
+			&cli.Float64Flag{
+				Name:  _flagRPS,
+				Usage: "max executions per second across all workers (0 = unlimited)",
+				Value: 0,
 			},
 		},
 		Action: func(c *cli.Context) error {
 			options := streamexec.Options{
-				ErrorLog:  c.String(_flagErrLogPath),
 				OutputLog: c.String(_flagOutputLogPath),
 				Params: streamexec.Params{
 					ExecString: c.String(_flagExecCmd),
@@ -116,6 +114,7 @@ Keys are normalised to make them safe for use in shell, so the key 'a-b' is avai
 				ContinueOnErr: c.Bool(_flagContinue),
 				DebugMode:     c.Bool(_flagDebug),
 				DryRun:        c.Bool(_flagDryRun),
+				RPS:           c.Float64(_flagRPS),
 			}
 			ex := streamexec.New(os.Stdin, os.Stdout, os.Stderr, options)
 			return ex.Run()

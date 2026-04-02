@@ -10,12 +10,12 @@ import (
 	"time"
 )
 
-func (s *StreamExec) exec(ctx context.Context, envvars []string) (*Result, error) {
+func (s *StreamExec) exec(ctx context.Context, envvars []string) *Result {
 
 	if s.options.DryRun {
 		log.Printf("Dry-run: bash -c '%s'\n", s.options.Params.ExecString)
 		log.Printf("with envvars: %v", envvars)
-		return nil, nil
+		return nil
 	}
 
 	stdout, err := execWithRetries(s.options.Params.Retries, func() ([]byte, error) {
@@ -29,7 +29,7 @@ func (s *StreamExec) exec(ctx context.Context, envvars []string) (*Result, error
 		var e *exec.ExitError
 		if errors.As(err, &e) {
 			code := e.ProcessState.ExitCode()
-			return nil, &Result{
+			return &Result{
 				Envvars:   envvars,
 				Params:    s.options.Params,
 				Stderr:    string(e.Stderr),
@@ -38,7 +38,13 @@ func (s *StreamExec) exec(ctx context.Context, envvars []string) (*Result, error
 				Succeeded: false,
 			}
 		} else {
-			return nil, err
+			return &Result{
+				Envvars:   envvars,
+				Params:    s.options.Params,
+				Stderr:    fmt.Sprintf("%v", err),
+				Stdout:    string(stdout),
+				Succeeded: false,
+			}
 		}
 	}
 	return &Result{
@@ -47,7 +53,7 @@ func (s *StreamExec) exec(ctx context.Context, envvars []string) (*Result, error
 		Stdout:    string(stdout),
 		ExitCode:  0,
 		Succeeded: true,
-	}, nil
+	}
 }
 
 // simple retry mechanism with exponential backoff
